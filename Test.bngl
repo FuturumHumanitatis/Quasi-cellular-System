@@ -1,1 +1,16 @@
+begin molecule types
+  Lig(l), Rec(r~u~p)
+end molecule types
 
+begin seed species
+  Lig(l) 100
+  Rec(r~u) 200
+end seed species
+
+begin reaction rules
+  Bind: Lig(l) + Rec(r~u) -> Lig(l!1).Rec(r~u!1) 1
+  Phospho: Rec(r~u) -> Rec(r~p) 0.1
+end reaction rules
+
+generate_network()
+simulate({method=>"ode",t_end=>100,n_steps=>100})
