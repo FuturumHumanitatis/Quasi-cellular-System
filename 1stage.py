@@ -97,24 +97,105 @@ class QuasiCellAutomaton:
         return neighbors
 
     def run_simulation(self, timesteps):
-        """Запуск симуляции."""
+        """Запуск симуляции с восстановленными правилами."""
         for t in range(timesteps):
             grid_to_read = np.copy(self.grid)
+            
             
             cell_indices = list(np.ndindex(self.grid_size))
             random.shuffle(cell_indices)
             
             for x, y, z in cell_indices:
-
-                if grid_to_read[x,y,z] == BOUND_RIBOSOME:
-
-                    pass
-
-                if grid_to_read[x,y,z] == BOUND_RNAP:
-
-                    pass
+                current_state = grid_to_read[x, y, z]
+                neighbors_pos = self.get_neighbors(x, y, z)
                 
 
+                if current_state == BOUND_RNAP:
+                    dna_target_pos = None
+                    for pos in neighbors_pos:
+                        if grid_to_read[pos] == DNA_CODING:
+                            dna_target_pos = pos
+                            break
+                    
+                    if dna_target_pos and random.random() < self.params['p_tscr_elong']:
+                        atp_pos = None
+                        for pos in neighbors_pos:
+                            if grid_to_read[pos] == ATP:
+                                atp_pos = pos
+                                break
+                        if atp_pos:
+                            self.grid[atp_pos] = EMPTY          
+                            self.grid[x, y, z] = MRNA           
+                            self.grid[dna_target_pos] = BOUND_RNAP 
+                    else: 
+                        if random.random() < self.params['p_term']:
+                            self.grid[x, y, z] = RNA_POLYMERASE
+
+                elif current_state == BOUND_RIBOSOME:
+                    if random.random() < self.params['p_transl_elong']:
+                        aa_pos = None
+                        atp_pos = None
+                        empty_pos = None
+                        random.shuffle(neighbors_pos)
+                        for pos in neighbors_pos:
+                            if grid_to_read[pos] == AMINO_ACID and not aa_pos:
+                                aa_pos = pos
+                            elif grid_to_read[pos] == ATP and not atp_pos:
+                                atp_pos = pos
+                            elif grid_to_read[pos] == EMPTY and not empty_pos:
+                                empty_pos = pos
+                        
+                        if aa_pos and atp_pos and empty_pos:
+                            self.grid[aa_pos] = EMPTY       
+                            self.grid[atp_pos] = EMPTY      
+                            self.grid[empty_pos] = GFP_PROTEIN
+                    
+                    if random.random() < self.params['p_term']:
+                        self.grid[x, y, z] = MRNA 
+                        empty_pos_for_ribo = None
+                        for pos in neighbors_pos:
+                            if grid_to_read[pos] == EMPTY:
+                                empty_pos_for_ribo = pos
+                                break
+                        if empty_pos_for_ribo:
+                            self.grid[empty_pos_for_ribo] = RIBOSOME
+
+                
+                elif current_state == RNA_POLYMERASE:
+                    if random.random() < self.params['p_tscr_init']:
+                        for pos in neighbors_pos:
+                            if grid_to_read[pos] == DNA_PROMOTER:
+                                self.grid[pos] = BOUND_RNAP    
+                                self.grid[x, y, z] = EMPTY
+                                break
+
+                elif current_state == RIBOSOME:
+                    if random.random() < self.params['p_transl_init']:
+                        for pos in neighbors_pos:
+                            if grid_to_read[pos] == MRNA:
+                                self.grid[pos] = BOUND_RIBOSOME 
+                                self.grid[x, y, z] = EMPTY
+                                break
+                                
+                elif current_state == MRNA and random.random() < self.params['p_mrna_degrad']:
+                    self.grid[x, y, z] = EMPTY
+                
+                elif current_state == GFP_PROTEIN and random.random() < self.params['p_prot_degrad']:
+                    self.grid[x, y, z] = EMPTY
+                
+                
+                is_mobile = current_state in [RNA_POLYMERASE, RIBOSOME, MRNA, GFP_PROTEIN, ATP, AMINO_ACID]
+                if is_mobile and random.random() < self.params['p_diff']:
+                    empty_neighbors = [p for p in neighbors_pos if grid_to_read[p] == EMPTY]
+                    if empty_neighbors:
+                        new_pos = random.choice(empty_neighbors)
+                        if self.grid[new_pos] == EMPTY: 
+                            self.grid[new_pos] = current_state
+                            self.grid[x, y, z] = EMPTY
+
+                elif current_state == EMPTY and random.random() < self.params['p_atp_gen']:
+                    self.grid[x, y, z] = ATP
+            
             self.history['gfp'].append(np.sum(self.grid == GFP_PROTEIN))
             self.history['mrna'].append(np.sum(self.grid == MRNA))
             self.history['atp'].append(np.sum(self.grid == ATP))
