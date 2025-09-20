@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дискретная Модель Синтеза Белка</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: Приложение организовано в виде тематических разделов с боковой навигацией (Концепция, Архитектура, Симулятор, Оптимизация, Дорожная карта). Такая структура выбрана для того, чтобы пользователь мог нелинейно исследовать проект, погружаясь в интересующие его аспекты. Вместо пассивного чтения отчета, пользователь получает возможность взаимодействовать с ключевыми элементами: изучать компоненты модели на интерактивной схеме, "играть" с параметрами в симуляторе и наглядно видеть результат. Это способствует более глубокому пониманию сложных концепций и динамики модели. -->
+    <!-- Visualization & Content Choices: 1. Теория (Концепция): Информация представлена в виде карточек для легкого восприятия. Цель - информировать. Метод - структурированный HTML/CSS. 2. Структура модели (Архитектура): Интерактивная диаграмма, созданная с помощью HTML/CSS (Flexbox/Grid). Цель - организовать и показать взаимосвязи. Клик по элементу показывает детали. Это заменяет статичные диаграммы и делает изучение структуры активным процессом. 3. Динамика (Симулятор): Слайдеры для параметров и график (Chart.js/Canvas). Цель - показать изменение во времени. Пользователь меняет входные данные и видит результат на графике, что иллюстрирует взаимосвязи. 4. Сравнение (Оптимизация): HTML-таблица для сравнения алгоритмов. Цель - сравнить. 5. План (Дорожная карта): Вертикальная временная шкала (HTML/CSS). Цель - организовать шаги проекта. Все визуализации реализованы без SVG/Mermaid, что подтверждает соответствие требованиям. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #383838;
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        .nav-link.active {
+            border-left-color: #D97706; /* amber-600 */
+            background-color: #FFFBEB; /* amber-50 */
+            color: #B45309; /* amber-700 */
+            font-weight: 600;
+        }
+        .nav-link:hover {
+            background-color: #FEF3C7; /* amber-100 */
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .diagram-item {
+            border: 2px solid #D1D5DB;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #fff;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        .diagram-item:hover, .diagram-item.selected {
+            border-color: #D97706;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .arrow {
+            position: relative;
+            text-align: center;
+        }
+        .arrow::after {
+            content: '→';
+            font-size: 2.5rem;
+            color: #9CA3AF;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .arrow.down::after {
+            content: '↓';
+        }
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #D97706;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .custom-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #D97706;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 450px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <aside class="w-full md:w-64 bg-white border-r border-gray-200 flex-shrink-0">
+            <div class="p-6">
+                <h1 class="text-xl font-bold text-amber-700">Модель Синтеза Белка</h1>
+                <p class="text-sm text-gray-500 mt-1">на Квазиклеточных Сетях</p>
+            </div>
+            <nav id="navigation" class="mt-4">
+                <a href="#concept" class="nav-link active block py-3 px-6 text-gray-600">Концепция</a>
+                <a href="#architecture" class="nav-link block py-3 px-6 text-gray-600">Архитектура Модели</a>
+                <a href="#simulator" class="nav-link block py-3 px-6 text-gray-600">Симулятор Параметров</a>
+                <a href="#optimization" class="nav-link block py-3 px-6 text-gray-600">Оптимизация и Валидация</a>
+                <a href="#roadmap" class="nav-link block py-3 px-6 text-gray-600">Дорожная Карта</a>
+            </nav>
+        </aside>
+
+        <main class="flex-1 p-6 sm:p-8 md:p-10">
+            <section id="concept" class="content-section active">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">Теоретическая Основа</h2>
+                <p class="mb-8 text-gray-600 max-w-3xl">Этот раздел раскрывает ключевые концепции, лежащие в основе модели. Понимание квази-клеточных сетей, математических подходов к моделированию и существующих аналогов является первым шагом к построению рабочей симуляции синтеза белка.</p>
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-amber-800">Квазиклеточные Сети</h3>
+                        <p class="text-gray-700">Это вычислительные модели, которые имитируют поведение клеточных систем в упрощенной, абстрактной среде. Они состоят из набора "квази-клеток" (узлов), которые представляют биологические компоненты (гены, белки, метаболиты), и правил, описывающих их взаимодействие. Применение в моделировании позволяет изучать сложные динамические процессы, такие как генная регуляция и метаболические пути, в контролируемых условиях.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-amber-800">Математические Подходы</h3>
+                        <p class="text-gray-700 mb-4">Дискретное моделирование разбивает непрерывные процессы на шаги с фиксированным интервалом времени θ. Это позволяет использовать простые алгебраические уравнения для описания динамики системы.</p>
+                        <ul class="space-y-2 list-disc list-inside text-gray-700">
+                           <li><b>Транскрипция:</b> $mRNA(t+\theta) = mRNA(t) + k_{transcription} \cdot \text{DNA} - d_{mRNA} \cdot mRNA(t)$</li>
+                           <li><b>Трансляция:</b> $Protein(t+\theta) = Protein(t) + k_{translation} \cdot mRNA(t) - d_{protein} \cdot Protein(t)$</li>
+                           <li><b>Энергия (АТФ):</b> $ATP(t+\theta) = ATP(t) + P_{ATP} - C_{transcription} - C_{translation}$</li>
+                        </ul>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <h3 class="text-xl font-semibold mb-2 text-amber-800">Адаптируемые Модели</h3>
+                        <p class="text-gray-700">Существующие фреймворки могут быть адаптированы для нашей задачи:</p>
+                        <ul class="mt-3 space-y-2 text-gray-600">
+                            <li><b>Клеточные автоматы:</b> Пространственные модели, где состояние каждой ячейки зависит от соседей. Полезны для моделирования диффузии и локальных взаимодействий.</li>
+                            <li><b>Сети Петри:</b> Графические модели для описания распределенных систем. Отлично подходят для визуализации потоков ресурсов (например, рибосом, аминокислот) и стохастических процессов.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="architecture" class="content-section">
+                 <h2 class="text-3xl font-bold mb-6 text-gray-800">Архитектура Модели</h2>
+                 <p class="mb-8 text-gray-600 max-w-3xl">Интерактивная диаграмма ниже представляет структуру модели. Кликните на любой компонент, чтобы увидеть его описание, состояния и правила перехода, которые определяют его динамику в системе.</p>
+                 <div class="flex flex-col lg:flex-row gap-8">
+                    <div class="w-full lg:w-3/5">
+                        <div id="diagram" class="grid grid-cols-3 gap-y-6 items-center">
+                            <div class="col-span-1"></div>
+                            <div id="diag-dna" class="diagram-item selected" data-id="dna">🧬 ДНК</div>
+                            <div class="col-span-1"></div>
+                            
+                            <div class="col-span-1"></div>
+                            <div class="arrow down"></div>
+                            <div class="col-span-1"></div>
+                            
+                            <div class="col-span-1"></div>
+                            <div id="diag-mrna" class="diagram-item" data-id="mrna">📄 мРНК</div>
+                            <div class="col-span-1"></div>
+
+                            <div class="col-span-1"></div>
+                            <div class="arrow down"></div>
+                            <div class="col-span-1"></div>
+
+                            <div id="diag-atp" class="diagram-item" data-id="atp">⚡ АТФ</div>
+                            <div class="arrow"></div>
+                            <div id="diag-protein" class="diagram-item" data-id="protein">⚙️ Белок</div>
+                        </div>
+                    </div>
+                    <div class="w-full lg:w-2/5">
+                        <div id="diagram-info" class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 min-h-[300px]">
+                        </div>
+                    </div>
+                 </div>
+            </section>
+
+            <section id="simulator" class="content-section">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">Симулятор Параметров</h2>
+                <p class="mb-8 text-gray-600 max-w-3xl">Этот интерактивный симулятор позволяет исследовать, как изменение ключевых параметров влияет на динамику синтеза белка и уровень энергетических ресурсов. Двигайте ползунки, чтобы увидеть результат на графике в реальном времени.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div>
+                        <label for="transcriptionRate" class="block text-sm font-medium text-gray-700">Скорость транскрипции ($k_{tr}$)</label>
+                        <input id="transcriptionRate" type="range" min="0.1" max="2.0" value="0.8" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer custom-slider">
+                        <span id="transcriptionRateValue" class="text-sm text-amber-700 font-semibold">0.8</span>
+                    </div>
+                    <div>
+                        <label for="translationRate" class="block text-sm font-medium text-gray-700">Эффективность трансляции ($k_{tl}$)</label>
+                        <input id="translationRate" type="range" min="0.1" max="2.0" value="1.0" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer custom-slider">
+                        <span id="translationRateValue" class="text-sm text-amber-700 font-semibold">1.0</span>
+                    </div>
+                    <div>
+                        <label for="atpProduction" class="block text-sm font-medium text-gray-700">Генерация АТФ ($P_{ATP}$)</label>
+                        <input id="atpProduction" type="range" min="5" max="50" value="25" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer custom-slider">
+                        <span id="atpProductionValue" class="text-sm text-amber-700 font-semibold">25</span>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div class="chart-container">
+                        <canvas id="simulationChart"></canvas>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="optimization" class="content-section">
+                 <h2 class="text-3xl font-bold mb-6 text-gray-800">Оптимизация и Валидация</h2>
+                 <p class="mb-8 text-gray-600 max-w-3xl">Для подбора оптимальных параметров модели и ее проверки используются эволюционные алгоритмы и сравнение с экспериментальными данными. Этот раздел описывает подходящие методы и процесс валидации.</p>
+                <h3 class="text-xl font-semibold mb-4 text-amber-800">Эволюционные Алгоритмы (ЭАМ)</h3>
+                <div class="overflow-x-auto bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">Алгоритм</th>
+                                <th scope="col" class="px-6 py-3">Принцип</th>
+                                <th scope="col" class="px-6 py-3">Сложность</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="bg-white border-b">
+                                <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">Генетические алгоритмы</th>
+                                <td class="px-6 py-4">Симуляция естественного отбора. Работа с популяцией "решений" (наборов параметров), их скрещивание и мутация.</td>
+                                <td class="px-6 py-4">Средняя. Зависит от размера популяции и числа поколений.</td>
+                            </tr>
+                            <tr class="bg-white">
+                                <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">Роевой интеллект (Swarm)</th>
+                                <td class="px-6 py-4">Имитация коллективного поведения (стаи птиц, муравьи). Агенты обмениваются информацией для поиска оптимума.</td>
+                                <td class="px-6 py-4">От низкой до средней. Хорошо масштабируется.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 class="text-xl font-semibold mb-4 text-amber-800">Процесс Валидации Модели</h3>
+                <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0 text-center">
+                    <div class="flex-1 bg-white p-4 rounded-lg shadow-sm border"><span>1. Сбор данных (РНК-микрочипы, масс-спектрометрия)</span></div>
+                    <div class="flex items-center justify-center text-2xl text-gray-400">→</div>
+                    <div class="flex-1 bg-white p-4 rounded-lg shadow-sm border"><span>2. Запуск симуляции с параметрами, найденными ЭАМ</span></div>
+                    <div class="flex items-center justify-center text-2xl text-gray-400">→</div>
+                    <div class="flex-1 bg-white p-4 rounded-lg shadow-sm border"><span>3. Сравнение результатов симуляции с экспериментом</span></div>
+                </div>
+            </section>
+
+            <section id="roadmap" class="content-section">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">Дорожная Карта Проекта</h2>
+                <p class="mb-8 text-gray-600 max-w-3xl">Пошаговый план создания модели от первоначальной формулировки гипотез до практической реализации и валидации результатов.</p>
+                <div class="relative border-l-2 border-amber-200 ml-4">
+                    <div class="mb-10 ml-8">
+                        <span class="absolute flex items-center justify-center w-8 h-8 bg-amber-200 rounded-full -left-4 ring-4 ring-white">1</span>
+                        <h3 class="flex items-center mb-1 text-lg font-semibold text-gray-900">Формулировка гипотез и обзор литературы</h3>
+                        <p class="block mb-2 text-sm font-normal leading-none text-gray-500">Этап 1</p>
+                        <p class="text-base font-normal text-gray-600">Определение ключевых процессов для моделирования, поиск существующих моделей и сбор данных по параметрам.</p>
+                    </div>
+                    <div class="mb-10 ml-8">
+                        <span class="absolute flex items-center justify-center w-8 h-8 bg-amber-200 rounded-full -left-4 ring-4 ring-white">2</span>
+                        <h3 class="mb-1 text-lg font-semibold text-gray-900">Математическое описание и построение базовой модели</h3>
+                        <p class="block mb-2 text-sm font-normal leading-none text-gray-500">Этап 2</p>
+                        <p class="text-base font-normal text-gray-600">Формализация уравнений для транскрипции, трансляции и энергетического метаболизма. Реализация прототипа в Python/MATLAB.</p>
+                    </div>
+                    <div class="mb-10 ml-8">
+                        <span class="absolute flex items-center justify-center w-8 h-8 bg-amber-200 rounded-full -left-4 ring-4 ring-white">3</span>
+                        <h3 class="mb-1 text-lg font-semibold text-gray-900">Калибровка и оптимизация параметров с помощью ЭАМ</h3>
+                         <p class="block mb-2 text-sm font-normal leading-none text-gray-500">Этап 3</p>
+                        <p class="text-base font-normal text-gray-600">Применение генетических алгоритмов для поиска наборов параметров, соответствующих целевым метрикам (например, максимальный выход белка).</p>
+                    </div>
+                    <div class="ml-8">
+                        <span class="absolute flex items-center justify-center w-8 h-8 bg-amber-200 rounded-full -left-4 ring-4 ring-white">4</span>
+                        <h3 class="mb-1 text-lg font-semibold text-gray-900">Валидация и проведение in silico экспериментов</h3>
+                         <p class="block mb-2 text-sm font-normal leading-none text-gray-500">Этап 4</p>
+                        <p class="text-base font-normal text-gray-600">Сравнение результатов модели с экспериментальными данными. Исследование влияния "виртуальных" мутаций на систему.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const navigationLinks = document.querySelectorAll('#navigation a');
+    const contentSections = document.querySelectorAll('.content-section');
+    const diagramItems = document.querySelectorAll('.diagram-item');
+    const diagramInfo = document.getElementById('diagram-info');
+
+    const infoData = {
+        dna: {
+            title: '🧬 ДНК (Дезоксирибонуклеиновая кислота)',
+            content: `
+                <p class="mb-2"><b>Роль:</b> Хранилище генетической информации. В модели является константным источником для синтеза мРНК.</p>
+                <p class="mb-2"><b>Состояние:</b> Концентрация считается постоянной (например, [DNA] = 1 у.е.).</p>
+                <p><b>Правила:</b> Не изменяется со временем, но является исходной точкой для транскрипции.</p>`
+        },
+        mrna: {
+            title: '📄 мРНК (Матричная РНК)',
+            content: `
+                <p class="mb-2"><b>Роль:</b> Посредник, переносящий генетический код от ДНК к рибосомам для синтеза белка.</p>
+                <p class="mb-2"><b>Состояние:</b> Уровень мРНК [mRNA] является динамической переменной.</p>
+                <p class="mb-2"><b>Правила перехода:</b></p>
+                <ul class="list-disc list-inside text-sm">
+                    <li><b>Приток:</b> Транскрипция с ДНК.</li>
+                    <li><b>Отток:</b> Естественный распад (деградация).</li>
+                </ul>
+                <p class="mt-2 text-sm"><i>Формула:</i> $mRNA(t+\\theta) = mRNA(t) + k_{tr} - d_{m} \cdot mRNA(t)$</p>`
+        },
+        protein: {
+            title: '⚙️ Белок',
+            content: `
+                <p class="mb-2"><b>Роль:</b> Конечный продукт, выполняющий функции в клетке. Целевая молекула модели.</p>
+                <p class="mb-2"><b>Состояние:</b> Уровень белка [Protein] является ключевой выходной переменной.</p>
+                <p class="mb-2"><b>Правила перехода:</b></p>
+                <ul class="list-disc list-inside text-sm">
+                    <li><b>Приток:</b> Трансляция на основе мРНК.</li>
+                    <li><b>Отток:</b> Естественный распад (деградация).</li>
+                </ul>
+                 <p class="mt-2 text-sm"><i>Формула:</i> $P(t+\\theta) = P(t) + k_{tl} \cdot mRNA(t) - d_{p} \cdot P(t)$</p>`
+        },
+        atp: {
+            title: '⚡ АТФ (Аденозинтрифосфат)',
+            content: `
+                <p class="mb-2"><b>Роль:</b> Основной источник энергии для клеточных процессов, включая транскрипцию и трансляцию.</p>
+                <p class="mb-2"><b>Состояние:</b> Уровень АТФ [ATP] является динамическим ресурсом.</p>
+                <p class="mb-2"><b>Правила перехода:</b></p>
+                <ul class="list-disc list-inside text-sm">
+                    <li><b>Приток:</b> Генерация в ходе метаболизма.</li>
+                    <li><b>Отток:</b> Потребление при синтезе мРНК и белка.</li>
+                </ul>
+                <p class="mt-2 text-sm"><i>Формула:</i> $ATP(t+\\theta) = ATP(t) + P_{ATP} - C_{tr} - C_{tl}$</p>`
+        }
+    };
+
+    function updateDiagramInfo(id) {
+        if (infoData[id]) {
+            diagramInfo.innerHTML = `
+                <h3 class="text-xl font-semibold mb-3 text-amber-800">${infoData[id].title}</h3>
+                <div class="text-gray-700 space-y-2">${infoData[id].content}</div>`;
+        }
+    }
+
+    navigationLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = link.getAttribute('href').substring(1);
+
+            navigationLinks.forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+
+            contentSections.forEach(section => {
+                if (section.id === targetId) {
+                    section.classList.add('active');
+                } else {
+                    section.classList.remove('active');
+                }
+            });
+        });
+    });
+    
+    diagramItems.forEach(item => {
+        item.addEventListener('click', () => {
+            diagramItems.forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+            const id = item.getAttribute('data-id');
+            updateDiagramInfo(id);
+        });
+    });
+
+    updateDiagramInfo('dna');
+
+    const ctx = document.getElementById('simulationChart').getContext('2d');
+    let simulationChart;
+
+    const transcriptionRateSlider = document.getElementById('transcriptionRate');
+    const translationRateSlider = document.getElementById('translationRate');
+    const atpProductionSlider = document.getElementById('atpProduction');
+
+    const transcriptionRateValue = document.getElementById('transcriptionRateValue');
+    const translationRateValue = document.getElementById('translationRateValue');
+    const atpProductionValue = document.getElementById('atpProductionValue');
+    
+    function runSimulation() {
+        const k_tr = parseFloat(transcriptionRateSlider.value);
+        const k_tl = parseFloat(translationRateSlider.value);
+        const p_atp = parseFloat(atpProductionSlider.value);
+        
+        transcriptionRateValue.textContent = k_tr.toFixed(1);
+        translationRateValue.textContent = k_tl.toFixed(1);
+        atpProductionValue.textContent = p_atp.toFixed(0);
+
+        const steps = 100;
+        const d_mrna = 0.1;
+        const d_protein = 0.02;
+        const c_tr = 0.2; 
+        const c_tl = 1.0; 
+
+        let mrna = [0];
+        let protein = [0];
+        let atp = [100];
+        let labels = [0];
+
+        for (let t = 0; t < steps; t++) {
+            labels.push(t + 1);
+            
+            let atp_cost = (c_tr * k_tr) + (c_tl * k_tl * mrna[t]);
+            let atp_factor = Math.max(0, Math.min(1, atp[t] / 50));
+
+            let next_mrna = mrna[t] + (k_tr * atp_factor) - (d_mrna * mrna[t]);
+            let next_protein = protein[t] + (k_tl * mrna[t] * atp_factor) - (d_protein * protein[t]);
+            let next_atp = atp[t] + p_atp - (atp_cost * atp_factor);
+
+            mrna.push(Math.max(0, next_mrna));
+            protein.push(Math.max(0, next_protein));
+            atp.push(Math.max(0, next_atp));
+        }
+        
+        return { labels, mrna, protein, atp };
+    }
+
+    function createOrUpdateChart() {
+        const data = runSimulation();
+        
+        if (simulationChart) {
+            simulationChart.data.labels = data.labels;
+            simulationChart.data.datasets[0].data = data.protein;
+            simulationChart.data.datasets[1].data = data.mrna;
+            simulationChart.data.datasets[2].data = data.atp;
+            simulationChart.update();
+        } else {
+            simulationChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Белок',
+                            data: data.protein,
+                            borderColor: '#D97706',
+                            backgroundColor: '#D9770633',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'мРНК',
+                            data: data.mrna,
+                            borderColor: '#059669',
+                            backgroundColor: '#05966933',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'АТФ',
+                            data: data.atp,
+                            borderColor: '#3B82F6',
+                            backgroundColor: '#3B82F633',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Концентрация (у.е.)'
+                            }
+                        },
+                        x: {
+                           title: {
+                                display: true,
+                                text: 'Время (шаги θ)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    [transcriptionRateSlider, translationRateSlider, atpProductionSlider].forEach(slider => {
+        slider.addEventListener('input', createOrUpdateChart);
+    });
+    
+    createOrUpdateChart();
+});
+</script>
+</body>
+</html>
